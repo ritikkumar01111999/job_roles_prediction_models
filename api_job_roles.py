@@ -9,11 +9,13 @@ import joblib
 import pickle
 from nltk.corpus import stopwords
 import pandas as pd
+import sys
+import os
 
 
 def clean_data(job_data):
     """
-    It cleans the given text.
+    This function cleans the given text.
     Input: Text
     Output: Clean text
     """
@@ -24,25 +26,35 @@ def clean_data(job_data):
     text = ' '.join([text for text in text.split() if text not in stop_words]) #removing stopwords
     return text
 
-# working properly
+
 def load_model(vector_path,model_path,class_path):
     """
-    It loads the all three trained models.
+    This function loads the all three trained models.
     Input : path of saved model.
     Output: loaded models
     """
-    loaded_model = joblib.load(model_path)
-    loaded_vectorizer = pickle.load(open(vector_path, 'rb'))
-
-    class_data = pd.read_csv(class_path)
-    loaded_class = list(class_data["classes"])
+# implementing exception handling
+    try:
+        loaded_model = joblib.load(model_path)
+        loaded_vectorizer = pickle.load(open(vector_path, 'rb'))
+        class_data = pd.read_csv(class_path)
+        loaded_class = list(class_data["classes"])
+    except FileNotFoundError:
+        print("File not found.  Aborting")
+        sys.exit(1)
+    except OSError:
+        print("OS error occurred trying to open ")
+        sys.exit(1)
+    except Exception as err:
+        print(f"Unexpected error opening  is",repr(err))
+        sys.exit(1) 
 
     return loaded_vectorizer,loaded_model,loaded_class
 
 
 def inverse_transform(class_list,encoded_list):
     """
-    It map the classes with encoded result.
+    This function map the classes with encoded result.
     Input : list of class ,predicted encoded value.
     Output : predicted job roles.
     """
@@ -63,36 +75,44 @@ def job_role():
     """
     description = request.form.get('description')
     title = request.form.get('title')
-    category = request.form.get('category')
 
-    model_folder = "models" + "/" + category + "/"
+    raw_category = request.form.get('category')
     
-    vector_path = model_folder + category + "_vectorizer.pickle"
+    category = raw_category.replace(' ', '_').lower() 
 
-    model_path =  model_folder + category + ".sav"
 
-    class_path = model_folder + category + ".csv"
+    if category == "":
+        print("no category")
+        sys.exit()
+    else:
+        model_folder = "models" + "/" + category + "/"
     
-    loaded_vectorizer,loaded_model,loaded_class = load_model(vector_path,model_path,class_path)
+        vector_path = model_folder + category + "_vectorizer.pickle"
 
-    def predict_job_roles(q):
-        """
-        It predict the job roles
-        Input: text
-        Output : job_roles
-        """
-        q = clean_data(q)
-        q_vec = loaded_vectorizer.transform([q])
-        q_pred = loaded_model.predict(q_vec)
-        final_result = inverse_transform(loaded_class,q_pred)
-        return final_result
+        model_path =  model_folder + category + ".sav"
+
+        class_path = model_folder + category + ".csv"
+    
+        loaded_vectorizer,loaded_model,loaded_class = load_model(vector_path,model_path,class_path)
+
+        def predict_job_roles(q):
+            """
+            It predict the job roles
+            Input: text
+            Output : job_roles
+            """
+            q = clean_data(q)
+            q_vec = loaded_vectorizer.transform([q])
+            q_pred = loaded_model.predict(q_vec)
+            final_result = inverse_transform(loaded_class,q_pred)
+            return final_result
 
 
-    final_string = description + ' '+ title
-    result = predict_job_roles(final_string)
-    return jsonify(result)
+        final_string = str(description) + ' '+ str(title)
+        result = predict_job_roles(final_string)
+        return jsonify(result)
 
 
 if __name__=="__main__":
-
-    app.run()
+    # app.run(host = os.getenv("ip_host"), port = os.getenv("port"))
+    app.run(host="143.198.113.228",port=5080,debug=True)

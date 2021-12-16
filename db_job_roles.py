@@ -1,26 +1,17 @@
 # process all jobs
-import csv
 import os
-import sqlalchemy
-from sqlalchemy import create_engine
-import pymysql
+import psycopg2
 
 
 def get_connection():
+    
+    connection = psycopg2.connect(host=os.getenv("PDBHOST"),
+                                    user=os.getenv("PDBUSER"),
+                                    password=os.getenv("PDBPASS"),
+                                    dbname=os.getenv("PDBNAME"),
+                                    port=os.getenv("PDBPORT"))
 
-    #get environment variable
-    user=os.getenv("DBUSER")
-    passwd=os.getenv("DBPASS")
-    host=os.getenv("DBHOST")
-    database=os.getenv("DBNAME")
-
-    #connection string
-    con_string="mysql+pymysql://{}:{}@{}/{}".format(user, passwd, host, database)
-
-    #create engine
-    sqlEngine = create_engine(con_string, pool_recycle=3600)
-    db = sqlEngine.raw_connection()
-    return db
+    return connection
 
 
 def get_jobs_data():
@@ -29,8 +20,11 @@ def get_jobs_data():
     cur = db.cursor()
 
     data = []
-
-    query = ""
+    
+    #jobrole2jobtable
+    #role_id, job_id
+    #create table for job roles
+    query = "select job_title, html_job_description, industry from jobs.job where industry != '' and html_job_description != '' and industry = 'Healthcare' limit 20"
     cur.execute(query)
     job_list = cur.fetchall()
 
